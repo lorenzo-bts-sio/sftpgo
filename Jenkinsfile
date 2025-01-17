@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_SERVER = 'sonarqube'  // Nom du serveur SonarQube défini dans Jenkins
+        SONARQUBE_SERVER = 'SonarQubeLocalServer'  // Nom du serveur SonarQube défini dans Jenkins
         DOCKER_IMAGE = 'my-go-app'                // Nom de l'image Docker
+        GO_DOCKER_IMAGE = 'golang:1.20'           // Image officielle Go pour les tests
     }
 
     stages {
@@ -16,25 +17,29 @@ pipeline {
             }
         }
 
-        stage('Unit Tests') {
+        stage('Unit Tests in Docker') {
             steps {
                 script {
-                    echo "Running unit tests"
+                    echo "Running unit tests in Docker container"
                     sh '''
-                    go mod tidy
-                    go test -v ./... -coverprofile=coverage.out
+                    docker run --rm -v $(pwd):/app -w /app ${GO_DOCKER_IMAGE} sh -c "
+                        go mod tidy && \
+                        go test -v ./... -coverprofile=coverage.out
+                    "
                     '''
                 }
             }
         }
 
-        stage('Integration Tests') {
+        stage('Integration Tests in Docker') {
             steps {
                 script {
-                    echo "Running integration tests"
+                    echo "Running integration tests in Docker container"
                     sh '''
-                    # Si vos tests d'intégration sont dans un dossier `integration`, ils seront exécutés ici.
-                    go test -v ./integration || exit 1
+                    docker run --rm -v $(pwd):/app -w /app ${GO_DOCKER_IMAGE} sh -c "
+                        # Remplacez ./integration par le chemin réel de vos tests d'intégration
+                        go test -v ./integration || exit 1
+                    "
                     '''
                 }
             }
@@ -46,11 +51,13 @@ pipeline {
                     echo "Running SonarQube analysis"
                     withSonarQubeEnv(SONARQUBE_SERVER) {
                         sh '''
-                        sonar-scanner \
-                          -Dsonar.projectKey=my-go-project \
-                          -Dsonar.sources=. \
-                          -Dsonar.exclusions=**/vendor/** \
-                          -Dsonar.go.coverage.reportPaths=coverage.out
+                        docker run --rm -v $(pwd):/app -w /app ${GO_DOCKER_IMAGE} sh -c "
+                            sonar-scanner \
+                              -Dsonar.projectKey=my-go-project \
+                              -Dsonar.sources=. \
+                              -Dsonar.exclusions=**/vendor/** \
+                              -Dsonar.go.coverage.reportPaths=coverage.out
+                        "
                         '''
                     }
                 }
