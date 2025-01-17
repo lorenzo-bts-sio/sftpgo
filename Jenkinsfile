@@ -19,24 +19,27 @@ pipeline {
 
         
 
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    echo "Running SonarQube analysis"
-                    withSonarQubeEnv(SONARQUBE_SERVER) {
-                        sh '''
-                        docker run --rm -v $(pwd):/app -w /app ${GO_DOCKER_IMAGE} sh -c "
-                            sonar-scanner \
-                              -Dsonar.projectKey=my-go-project \
-                              -Dsonar.sources=. \
-                              -Dsonar.exclusions=**/vendor/** \
-                              -Dsonar.go.coverage.reportPaths=coverage.out
-                        "
-                        '''
-                    }
-                }
-            }
+      stage('SonarQube Analysis') {
+    steps {
+        script {
+            echo "Running SonarQube analysis"
+            sh '''
+            # Installer SonarQube Scanner dans l'image Golang
+            apt-get update && apt-get install -y wget openjdk-11-jdk
+            wget https://github.com/SonarSource/sonar-scanner-cli/releases/download/4.7.0.2747/sonar-scanner-4.7.0.2747-linux.zip
+            unzip sonar-scanner-4.7.0.2747-linux.zip
+            export PATH=$PATH:/app/sonar-scanner-4.7.0.2747-linux/bin
+
+            # Exécuter l'analyse SonarQube
+            sonar-scanner \
+                -Dsonar.projectKey=my-go-project \
+                -Dsonar.sources=. \
+                -Dsonar.exclusions=**/vendor/** \
+                -Dsonar.go.coverage.reportPaths=coverage.out
+            '''
         }
+    }
+}
 
         stage('Wait for Quality Gate') {
             steps {
