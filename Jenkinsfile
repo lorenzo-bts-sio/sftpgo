@@ -4,42 +4,55 @@ pipeline {
     environment {
         SONARQUBE_SERVER = 'SonarQubeLocalServer'  // Nom du serveur SonarQube défini dans Jenkins
         DOCKER_IMAGE = 'my-go-app'                // Nom de l'image Docker
-        GO_DOCKER_IMAGE = 'golang:1.20'           // Image officielle Go pour les tests
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                script {
-                    echo "Checking out source code"
-                }
                 checkout scm
             }
         }
 
-        
-
-      stage('SonarQube Analysis') {
-    steps {
-        script {
-            echo "Running SonarQube analysis"
-            sh '''
-            # Installer SonarQube Scanner dans l'image Golang
-            apt-get update && apt-get install -y wget openjdk-11-jdk
-            wget https://github.com/SonarSource/sonar-scanner-cli/releases/download/4.7.0.2747/sonar-scanner-4.7.0.2747-linux.zip
-            unzip sonar-scanner-4.7.0.2747-linux.zip
-            export PATH=$PATH:/app/sonar-scanner-4.7.0.2747-linux/bin
-
-            # Exécuter l'analyse SonarQube
-            sonar-scanner \
-                -Dsonar.projectKey=my-go-project \
-                -Dsonar.sources=. \
-                -Dsonar.exclusions=**/vendor/** \
-                -Dsonar.go.coverage.reportPaths=coverage.out
-            '''
+        stage('Unit Tests') {
+            steps {
+                script {
+                    echo "Running unit tests"
+                    sh '''
+                    go mod tidy
+                    go test -v ./... -coverprofile=coverage.out
+                    '''
+                }
+            }
         }
-    }
-}
+
+        stage('Integration Tests') {
+            steps {
+                script {
+                    echo "Running integration tests"
+                    sh '''
+                    # Supposons que vos tests d'intégration soient dans un répertoire `integration`
+                    go test -v ./integration
+                    '''
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    echo "Running SonarQube analysis"
+                    withSonarQubeEnv(SONARQUBE_SERVER) {
+                        sh '''
+                        sonar-scanner \
+                            -Dsonar.projectKey=my-go-project \
+                            -Dsonar.sources=. \
+                            -Dsonar.exclusions=**/vendor/** \
+                            -Dsonar.go.coverage.reportPaths=coverage.out
+                        '''
+                    }
+                }
+            }
+        }
 
         stage('Wait for Quality Gate') {
             steps {
@@ -69,22 +82,16 @@ pipeline {
 
     post {
         always {
-            script {
-                echo "Cleaning workspace after build"
-            }
+            echo "Cleaning workspace after build"
             deleteDir()
         }
 
-        failure {
-            script {
-                echo "Pipeline failed!"
-            }
+        success {
+            echo "Build completed successfully!"
         }
 
-        success {
-            script {
-                echo "Build and tests completed successfully!"
-            }
+        failure {
+            echo "Build failed!"
         }
     }
 }
