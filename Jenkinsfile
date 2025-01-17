@@ -2,13 +2,16 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_SERVER = 'SonarQubeLocalServer'  // Nom du serveur SonarQube défini dans Jenkins
+        SONARQUBE_SERVER = 'sonarqube'  // Nom du serveur SonarQube défini dans Jenkins
         DOCKER_IMAGE = 'my-go-app'                // Nom de l'image Docker
     }
 
     stages {
         stage('Checkout Code') {
             steps {
+                script {
+                    echo "Checking out source code"
+                }
                 checkout scm
             }
         }
@@ -30,8 +33,8 @@ pipeline {
                 script {
                     echo "Running integration tests"
                     sh '''
-                    # Supposons que vos tests d'intégration soient dans un répertoire `integration`
-                    go test -v ./integration
+                    # Si vos tests d'intégration sont dans un dossier `integration`, ils seront exécutés ici.
+                    go test -v ./integration || exit 1
                     '''
                 }
             }
@@ -78,19 +81,26 @@ pipeline {
                 }
             }
         }
-
-      
+    }
 
     post {
         always {
-            echo "Cleaning workspace after build"
+            script {
+                echo "Cleaning workspace after build"
+            }
             deleteDir()
         }
 
-       
+        failure {
+            script {
+                echo "Pipeline failed!"
+            }
+        }
 
         success {
-            echo "Build completed successfully!"
+            script {
+                echo "Build and tests completed successfully!"
+            }
         }
     }
 }
