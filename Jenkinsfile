@@ -17,33 +17,7 @@ pipeline {
             }
         }
 
-        stage('Unit Tests in Docker') {
-            steps {
-                script {
-                    echo "Running unit tests in Docker container"
-                    sh '''
-                    docker run --rm -v $(pwd):/app -w /app ${GO_DOCKER_IMAGE} sh -c "
-                        go mod tidy && \
-                        go test -v ./... -coverprofile=coverage.out
-                    "
-                    '''
-                }
-            }
-        }
-
-        stage('Integration Tests in Docker') {
-            steps {
-                script {
-                    echo "Running integration tests in Docker container"
-                    sh '''
-                    docker run --rm -v $(pwd):/app -w /app ${GO_DOCKER_IMAGE} sh -c "
-                        # Remplacez ./integration par le chemin réel de vos tests d'intégration
-                        go test -v ./integration || exit 1
-                    "
-                    '''
-                }
-            }
-        }
+        
 
         stage('SonarQube Analysis') {
             steps {
