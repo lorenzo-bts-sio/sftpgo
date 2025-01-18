@@ -13,10 +13,17 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 echo 'Cloning the repository...'
-                sh '''
-                    git clone $GIT_URL $WORKSPACE_DIR
-                    cd $WORKSPACE_DIR
-                '''
+                script {
+                    // Vérifie si le répertoire /app existe et le recrée s'il est présent
+                    sh '''
+                        if [ -d "$WORKSPACE_DIR" ]; then
+                            echo "$WORKSPACE_DIR exists. Deleting it..."
+                            rm -rf $WORKSPACE_DIR
+                        fi
+                        mkdir -p $WORKSPACE_DIR
+                        git clone $GIT_URL $WORKSPACE_DIR
+                    '''
+                }
             }
         }
 
