@@ -15,6 +15,7 @@ pipeline {
                 echo 'Building the Go project using Docker...'
                 sh '''
                     docker run --rm -v $PWD:/app -w /app golang:1.23 sh -c "
+                        ls -la 
                         go version &&
                         go mod tidy &&
                         go build -o build/app
