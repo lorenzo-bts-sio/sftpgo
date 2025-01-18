@@ -2,40 +2,74 @@ pipeline {
     agent any
 
     environment {
-        WORKSPACE_DIR = '/app'
+        // Variables pour SonarQube
+        SONARQUBE_SERVER = 'SonarQube' // Nom du serveur SonarQube configuré dans Jenkins
+        SONARQUBE_TOKEN_ID = 'sonar-token' // ID du token d'authentification SonarQube dans Jenkins
+        SONAR_PROJECT_KEY = 'go-project' // Clé unique du projet dans SonarQube
+        WORKSPACE_DIR = '/app' // Répertoire de travail du projet
     }
 
     stages {
-        stage('Build') {
-            agent {
-                docker {
-                    image 'golang:1.23' // Assurez-vous que cette version existe
-                    args '-v $PWD:/app -w /app' // Monte le volume pour accéder au code
-                }
-            }
+        stage('Checkout Code') {
             steps {
-                echo 'Building the Go project...'
+                echo 'Cloning the repository...'
                 sh '''
-                    go version
-                    go mod tidy
-                    go build -o build/app
+                    git clone $GIT_URL $WORKSPACE_DIR
+                    cd $WORKSPACE_DIR
+                '''
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Building the Go project using Docker...'
+                sh '''
+                    docker run --rm -v $PWD:/app -w /app golang:1.23 sh -c "
+                        go version &&
+                        go mod tidy &&
+                        go build -o build/app
+                    "
                 '''
             }
         }
 
         stage('Run Tests') {
-            agent {
-                docker {
-                    image 'golang:1.23'
-                    args '-v $PWD:/app -w /app'
-                }
+            steps {
+                echo 'Running tests using Docker...'
+                sh '''
+                    docker run --rm -v $PWD:/app -w /app golang:1.23 sh -c "
+                        mkdir -p coverage &&
+                        go test ./... -coverprofile=coverage/coverage.out
+                    "
+                '''
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            environment {
+                // Cette variable contient le chemin vers le token SonarQube
+                SONARQUBE_TOKEN = credentials('sonar-token') // Vous devez avoir configuré le secret du token dans Jenkins
             }
             steps {
-                echo 'Running tests...'
-                sh '''
-                    mkdir -p coverage
-                    go test ./... -coverprofile=coverage/coverage.out
-                '''
+                echo 'Running SonarQube analysis...'
+                script {
+                    // Lancer l'analyse SonarQube avec le scanner Docker
+                    sh '''
+                        docker run --rm \
+                        -e SONARQUBE_TOKEN=${SONARQUBE_TOKEN} \
+                        -v $PWD:/app \
+                        -w /app \
+                        sonarsource/sonar-scanner-cli:latest \
+                        sonar-scanner \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.sources=. \
+                        -Dsonar.tests=. \
+                        -Dsonar.test.inclusions="**/*_test.go" \
+                        -Dsonar.go.coverage.reportPaths=coverage/coverage.out \
+                        -Dsonar.host.url=http://your-sonarqube-server-url \
+                        -Dsonar.login=${SONARQUBE_TOKEN}
+                    '''
+                }
             }
         }
     }
@@ -45,10 +79,10 @@ pipeline {
             echo 'Pipeline execution completed.'
         }
         success {
-            echo 'Build and tests completed successfully!'
+            echo 'Build, tests, and SonarQube analysis completed successfully!'
         }
         failure {
-            echo 'Build or tests failed. Please check the logs.'
+            echo 'Build, tests, or SonarQube analysis failed. Please check the logs.'
         }
     }
 }
