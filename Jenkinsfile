@@ -18,7 +18,7 @@ pipeline {
                     // Assurez-vous que le volume Docker monte le bon répertoire
                     sh '''
                         docker run --rm \
-                        -v $PWD:/app \
+                        -v .:/app \
                         -w /app \
                         golang:1.23 sh -c "
                             ls -la &&  # Liste les fichiers pour vérifier la présence du code
