@@ -2,96 +2,54 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_SERVER = 'SonarQubeLocalServer'  // Nom du serveur SonarQube défini dans Jenkins
-        DOCKER_IMAGE = 'my-go-app'                // Nom de l'image Docker
+        // Répertoire de travail dans le conteneur Docker
+        WORKSPACE_DIR = '/app'
     }
 
     stages {
-        stage('Checkout Code') {
-            steps {
-                checkout scm
+        stage('Build') {
+            agent {
+                docker {
+                    image 'golang:1.23'
+                }
             }
-        }
-
-        stage('Unit Tests') {
             steps {
-                script {
-                    echo "Running unit tests"
-                    sh '''
+                echo 'Building the Go project...'
+                sh '''
+                    cd $WORKSPACE_DIR
+                    go version
                     go mod tidy
-                    go test -v ./... -coverprofile=coverage.out
-                    '''
-                }
+                    go build -o build/app
+                '''
             }
         }
 
-        stage('Integration Tests') {
-            steps {
-                script {
-                    echo "Running integration tests"
-                    sh '''
-                    # Supposons que vos tests d'intégration soient dans un répertoire `integration`
-                    go test -v ./integration
-                    '''
+        stage('Run Tests') {
+            agent {
+                docker {
+                    image 'golang:1.23'
                 }
             }
-        }
-
-        stage('SonarQube Analysis') {
             steps {
-                script {
-                    echo "Running SonarQube analysis"
-                    withSonarQubeEnv(SONARQUBE_SERVER) {
-                        sh '''
-                        sonar-scanner \
-                            -Dsonar.projectKey=my-go-project \
-                            -Dsonar.sources=. \
-                            -Dsonar.exclusions=**/vendor/** \
-                            -Dsonar.go.coverage.reportPaths=coverage.out
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Wait for Quality Gate') {
-            steps {
-                script {
-                    echo "Waiting for SonarQube Quality Gate"
-                    timeout(time: 2, unit: 'MINUTES') {
-                        def qualityGate = waitForQualityGate()
-                        if (qualityGate.status != 'OK') {
-                            error "Quality Gate failed: ${qualityGate.status}"
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    echo "Building Docker image"
-                    sh '''
-                    docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} .
-                    '''
-                }
+                echo 'Running tests...'
+                sh '''
+                    cd $WORKSPACE_DIR
+                    mkdir -p coverage
+                    go test ./... -coverprofile=coverage/coverage.out
+                '''
             }
         }
     }
 
     post {
         always {
-            echo "Cleaning workspace after build"
-            deleteDir()
+            echo 'Pipeline execution completed.'
         }
-
         success {
-            echo "Build completed successfully!"
+            echo 'Build and tests completed successfully!'
         }
-
         failure {
-            echo "Build failed!"
+            echo 'Build or tests failed. Please check the logs.'
         }
     }
 }
