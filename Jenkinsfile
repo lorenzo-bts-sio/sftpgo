@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Répertoire de travail dans le conteneur Docker
         WORKSPACE_DIR = '/app'
     }
 
@@ -10,13 +9,13 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'golang:1.23'
+                    image 'golang:1.23' // Assurez-vous que cette version existe
+                    args '-v $PWD:/app -w /app' // Monte le volume pour accéder au code
                 }
             }
             steps {
                 echo 'Building the Go project...'
                 sh '''
-                    cd $WORKSPACE_DIR
                     go version
                     go mod tidy
                     go build -o build/app
@@ -28,12 +27,12 @@ pipeline {
             agent {
                 docker {
                     image 'golang:1.23'
+                    args '-v $PWD:/app -w /app'
                 }
             }
             steps {
                 echo 'Running tests...'
                 sh '''
-                    cd $WORKSPACE_DIR
                     mkdir -p coverage
                     go test ./... -coverprofile=coverage/coverage.out
                 '''
