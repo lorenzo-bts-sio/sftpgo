@@ -13,14 +13,21 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building the Go project using Docker...'
-                sh '''
-                    docker run --rm -v $PWD:/app -w /app golang:1.23 sh -c "
-                        ls -la 
-                        go version &&
-                        go mod tidy &&
-                        go build -o build/app
-                    "
-                '''
+                script {
+                    // Le code est monté dans /var/jenkins_home/workspace/${JOB_NAME} sur l'hôte Jenkins
+                    // Assurez-vous que le volume Docker monte le bon répertoire
+                    sh '''
+                        docker run --rm \
+                        -v $PWD:/app \
+                        -w /app \
+                        golang:1.23 sh -c "
+                            ls -la &&  # Liste les fichiers pour vérifier la présence du code
+                            go version &&
+                            go mod tidy &&
+                            go build -o build/app
+                        "
+                    '''
+                }
             }
         }
 
@@ -28,7 +35,10 @@ pipeline {
             steps {
                 echo 'Running tests using Docker...'
                 sh '''
-                    docker run --rm -v $PWD:/app -w /app golang:1.23 sh -c "
+                    docker run --rm \
+                    -v $PWD:/app \
+                    -w /app \
+                    golang:1.23 sh -c "
                         mkdir -p coverage &&
                         go test ./... -coverprofile=coverage/coverage.out
                     "
