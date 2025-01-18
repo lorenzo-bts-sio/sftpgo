@@ -10,23 +10,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout Code') {
-            steps {
-                echo 'Cloning the repository...'
-                script {
-                    // Vérifie si le répertoire /app existe et le recrée s'il est présent
-                    sh '''
-                        if [ -d "$WORKSPACE_DIR" ]; then
-                            echo "$WORKSPACE_DIR exists. Deleting it..."
-                            rm -rf $WORKSPACE_DIR
-                        fi
-                        mkdir -p $WORKSPACE_DIR
-                        git clone $GIT_URL $WORKSPACE_DIR
-                    '''
-                }
-            }
-        }
-
         stage('Build') {
             steps {
                 echo 'Building the Go project using Docker...'
@@ -54,29 +37,25 @@ pipeline {
 
         stage('SonarQube Analysis') {
             environment {
-                // Cette variable contient le chemin vers le token SonarQube
-                SONARQUBE_TOKEN = credentials('sonar-token') // Vous devez avoir configuré le secret du token dans Jenkins
+                SONARQUBE_TOKEN = credentials('sonar-token')
             }
             steps {
                 echo 'Running SonarQube analysis...'
-                script {
-                    // Lancer l'analyse SonarQube avec le scanner Docker
-                    sh '''
-                        docker run --rm \
-                        -e SONARQUBE_TOKEN=${SONARQUBE_TOKEN} \
-                        -v $PWD:/app \
-                        -w /app \
-                        sonarsource/sonar-scanner-cli:latest \
-                        sonar-scanner \
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        -Dsonar.sources=. \
-                        -Dsonar.tests=. \
-                        -Dsonar.test.inclusions="**/*_test.go" \
-                        -Dsonar.go.coverage.reportPaths=coverage/coverage.out \
-                        -Dsonar.host.url=http://your-sonarqube-server-url \
-                        -Dsonar.login=${SONARQUBE_TOKEN}
-                    '''
-                }
+                sh '''
+                    docker run --rm \
+                    -e SONARQUBE_TOKEN=${SONARQUBE_TOKEN} \
+                    -v $PWD:/app \
+                    -w /app \
+                    sonarsource/sonar-scanner-cli:latest \
+                    sonar-scanner \
+                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                    -Dsonar.sources=. \
+                    -Dsonar.tests=. \
+                    -Dsonar.test.inclusions="**/*_test.go" \
+                    -Dsonar.go.coverage.reportPaths=coverage/coverage.out \
+                    -Dsonar.host.url=http://your-sonarqube-server-url \
+                    -Dsonar.login=${SONARQUBE_TOKEN}
+                '''
             }
         }
     }
